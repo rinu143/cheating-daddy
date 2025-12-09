@@ -906,13 +906,6 @@ export class CustomizeView extends LitElement {
         this.updateWindowDimensions();
     }
 
-    async handleAdvancedModeChange(e) {
-        this.advancedMode = e.target.checked;
-        localStorage.setItem('advancedMode', this.advancedMode.toString());
-        this.onAdvancedModeChange(this.advancedMode);
-        this.requestUpdate();
-    }
-
     loadBackgroundTransparency() {
         const backgroundTransparency = localStorage.getItem('backgroundTransparency');
         if (backgroundTransparency !== null) {
@@ -1375,31 +1368,6 @@ export class CustomizeView extends LitElement {
 
                 <div class="settings-note">
                     💡 Settings are automatically saved as you change them. Changes will take effect immediately or on the next session start.
-                </div>
-
-                <!-- Advanced Mode Section (Danger Zone) -->
-                <div class="settings-section" style="border-color: var(--danger-border, rgba(239, 68, 68, 0.3)); background: var(--danger-background, rgba(239, 68, 68, 0.05));">
-                    <div class="section-title" style="color: var(--danger-color, #ef4444);">
-                        <span>⚠️ Advanced Mode</span>
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="checkbox-group">
-                                <input
-                                    type="checkbox"
-                                    class="checkbox-input"
-                                    id="advanced-mode"
-                                    .checked=${this.advancedMode}
-                                    @change=${this.handleAdvancedModeChange}
-                                />
-                                <label for="advanced-mode" class="checkbox-label"> Enable Advanced Mode </label>
-                            </div>
-                            <div class="form-description" style="margin-left: 24px; margin-top: -8px;">
-                                Unlock experimental features, developer tools, and advanced configuration options
-                                <br /><strong>Note:</strong> Advanced mode adds a new icon to the main navigation bar
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         `;

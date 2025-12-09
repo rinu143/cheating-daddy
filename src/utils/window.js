@@ -4,7 +4,6 @@ const fs = require('node:fs');
 const os = require('os');
 const { applyStealthMeasures, startTitleRandomization } = require('./stealthFeatures');
 
-
 const { getLocalConfig } = require('../config');
 
 let mouseEventsIgnored = false;
@@ -32,11 +31,14 @@ function createWindow(sendToRenderer, geminiSessionRef, randomNames = null) {
     // Get layout preference (default to 'normal')
     // Get layout preference (default to 'normal') and scale
     const config = getLocalConfig();
-    const widthScale = config.widthScale || 1.0;
-    const heightScale = config.heightScale || 1.0;
-    
-    let windowWidth = Math.round(1100 * widthScale);
-    let windowHeight = Math.round(800 * heightScale);
+    const widthScale = Number(config.widthScale) || 1.0;
+    const heightScale = Number(config.heightScale) || 1.0;
+
+    // Ensure dimensions are positive and reasonable
+    let windowWidth = Math.max(400, Math.round(1100 * widthScale));
+    let windowHeight = Math.max(300, Math.round(800 * heightScale));
+
+    console.log(`Creating window with dimensions: ${windowWidth}x${windowHeight} (scales: ${widthScale}, ${heightScale})`);
 
     const mainWindow = new BrowserWindow({
         width: windowWidth,

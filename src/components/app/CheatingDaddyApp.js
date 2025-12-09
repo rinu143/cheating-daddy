@@ -2,7 +2,6 @@ import { html, css, LitElement } from '../../assets/lit-core-2.7.4.min.js';
 import { AppHeader } from './AppHeader.js';
 import { MainView } from '../views/MainView.js';
 import { CustomizeView } from '../views/CustomizeView.js';
-import { HelpView } from '../views/HelpView.js';
 import { HistoryView } from '../views/HistoryView.js';
 import { AssistantView } from '../views/AssistantView.js';
 import { OnboardingView } from '../views/OnboardingView.js';
@@ -139,6 +138,28 @@ export class CheatingDaddyApp extends LitElement {
 
         // Apply layout mode to document root
         this.updateLayoutMode();
+        this.applyGlobalStyles();
+    }
+
+    applyGlobalStyles() {
+        try {
+            let transparency = parseFloat(localStorage.getItem('backgroundTransparency'));
+            // Validate transparency is a valid number between 0 and 1
+            if (isNaN(transparency) || transparency < 0 || transparency > 1) {
+                transparency = 0.8; // Default fallback
+            }
+
+            const root = document.documentElement;
+            root.style.setProperty('--main-content-background', `rgba(0, 0, 0, ${transparency})`);
+            root.style.setProperty('--screen-option-background', `rgba(0, 0, 0, ${transparency * 0.5})`);
+            root.style.setProperty('--screen-option-hover-background', `rgba(0, 0, 0, ${transparency * 0.75})`);
+            root.style.setProperty('--scrollbar-background', `rgba(0, 0, 0, ${transparency * 0.5})`);
+            root.style.setProperty('--header-background', `rgba(0, 0, 0, ${transparency})`);
+
+            console.log('Applied global transparency:', transparency);
+        } catch (e) {
+            console.error('Error applying global styles:', e);
+        }
     }
 
     connectedCallback() {
@@ -218,11 +239,6 @@ export class CheatingDaddyApp extends LitElement {
         this.requestUpdate();
     }
 
-    handleHelpClick() {
-        this.currentView = 'help';
-        this.requestUpdate();
-    }
-
     handleHistoryClick() {
         this.currentView = 'history';
         this.requestUpdate();
@@ -234,7 +250,7 @@ export class CheatingDaddyApp extends LitElement {
     }
 
     async handleClose() {
-        if (this.currentView === 'customize' || this.currentView === 'help' || this.currentView === 'history') {
+        if (this.currentView === 'customize' || this.currentView === 'history') {
             this.currentView = 'main';
         } else if (this.currentView === 'assistant') {
             cheddar.stopCapture();
@@ -428,9 +444,6 @@ export class CheatingDaddyApp extends LitElement {
                     ></customize-view>
                 `;
 
-            case 'help':
-                return html` <help-view .onExternalLinkClick=${url => this.handleExternalLinkClick(url)}></help-view> `;
-
             case 'history':
                 return html` <history-view></history-view> `;
 
@@ -474,7 +487,6 @@ export class CheatingDaddyApp extends LitElement {
                         .startTime=${this.startTime}
                         .advancedMode=${this.advancedMode}
                         .onCustomizeClick=${() => this.handleCustomizeClick()}
-                        .onHelpClick=${() => this.handleHelpClick()}
                         .onHistoryClick=${() => this.handleHistoryClick()}
                         .onAdvancedClick=${() => this.handleAdvancedClick()}
                         .onCloseClick=${() => this.handleClose()}
