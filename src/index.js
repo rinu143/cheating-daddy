@@ -1,5 +1,17 @@
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 
+if (process.argv.includes('--squirrel-uninstall')) {
+    const fs = require('fs');
+    try {
+        const userDataPath = app.getPath('userData');
+        if (fs.existsSync(userDataPath)) {
+            fs.rmSync(userDataPath, { recursive: true, force: true });
+        }
+    } catch (err) {
+        // console.error('Uninstall cleanup failed:', err);
+    }
+}
+
 if (require('electron-squirrel-startup')) {
     app.quit();
 }
@@ -98,6 +110,24 @@ function setupGeneralIpcHandlers() {
             return { success: true, config };
         } catch (error) {
             console.error('Error setting layout:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('set-window-dimensions', async (event, { widthScale, heightScale, maintainAspectRatio }) => {
+        try {
+            if (widthScale < 0.5 || widthScale > 2.0 || heightScale < 0.5 || heightScale > 2.0) {
+                throw new Error('Invalid scale values. Must be between 0.5 and 2.0');
+            }
+
+            const config = getLocalConfig();
+            config.widthScale = widthScale;
+            config.heightScale = heightScale;
+            config.maintainAspectRatio = maintainAspectRatio;
+            writeConfig(config);
+            return { success: true, config };
+        } catch (error) {
+            console.error('Error setting window dimensions:', error);
             return { success: false, error: error.message };
         }
     });

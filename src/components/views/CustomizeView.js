@@ -449,7 +449,30 @@ export class CustomizeView extends LitElement {
         this.loadAdvancedModeSettings();
         this.loadBackgroundTransparency();
         this.loadFontSize();
+        this.loadWindowDimensions();
     }
+
+    static properties = {
+        selectedProfile: { type: String },
+        widthScale: { type: Number },
+        heightScale: { type: Number },
+        maintainAspectRatio: { type: Boolean },
+        selectedLanguage: { type: String },
+        selectedScreenshotInterval: { type: String },
+        selectedImageQuality: { type: String },
+        layoutMode: { type: String },
+        keybinds: { type: Object },
+        googleSearchEnabled: { type: Boolean },
+        backgroundTransparency: { type: Number },
+        fontSize: { type: Number },
+        onProfileChange: { type: Function },
+        onLanguageChange: { type: Function },
+        onScreenshotIntervalChange: { type: Function },
+        onImageQualityChange: { type: Function },
+        onLayoutModeChange: { type: Function },
+        advancedMode: { type: Boolean },
+        onAdvancedModeChange: { type: Function },
+    };
 
     connectedCallback() {
         super.connectedCallback();
@@ -800,6 +823,89 @@ export class CustomizeView extends LitElement {
         }
     }
 
+    async loadWindowDimensions() {
+        if (window.require) {
+            try {
+                const { ipcRenderer } = window.require('electron');
+                const result = await ipcRenderer.invoke('get-config');
+                if (result.success) {
+                    this.widthScale = result.config.widthScale || 1.0;
+                    this.heightScale = result.config.heightScale || 1.0;
+                    this.maintainAspectRatio = result.config.maintainAspectRatio !== false; // Default true
+                    this.requestUpdate();
+                }
+            } catch (error) {
+                console.error('Failed to load window dimensions:', error);
+                this.widthScale = 1.0;
+                this.heightScale = 1.0;
+                this.maintainAspectRatio = true;
+            }
+        }
+    }
+
+    async updateWindowDimensions() {
+        if (window.require) {
+            try {
+                const { ipcRenderer } = window.require('electron');
+                await ipcRenderer.invoke('set-window-dimensions', {
+                    widthScale: this.widthScale,
+                    heightScale: this.heightScale,
+                    maintainAspectRatio: this.maintainAspectRatio
+                });
+                resizeLayout();
+            } catch (error) {
+                console.error('Failed to update window dimensions:', error);
+            }
+        }
+    }
+
+    handleWidthIncrement() {
+        const step = 0.05;
+        const newWidthScale = Math.min(this.widthScale + step, 2.0);
+        this.updateWidthScale(newWidthScale);
+    }
+
+    handleWidthDecrement() {
+        const step = 0.05;
+        const newWidthScale = Math.max(this.widthScale - step, 0.5);
+        this.updateWidthScale(newWidthScale);
+    }
+
+    updateWidthScale(newWidthScale) {
+        if (this.maintainAspectRatio) {
+            const ratio = newWidthScale / this.widthScale;
+            this.heightScale = Math.min(Math.max(this.heightScale * ratio, 0.5), 2.0);
+        }
+        
+        this.widthScale = newWidthScale;
+        this.requestUpdate();
+        this.updateWindowDimensions();
+    }
+
+    handleWidthScaleChange(e) {
+        const newWidthScale = parseFloat(e.target.value);
+        this.updateWidthScale(newWidthScale);
+    }
+
+    handleHeightScaleChange(e) {
+        const newHeightScale = parseFloat(e.target.value);
+        
+        if (this.maintainAspectRatio) {
+            const ratio = newHeightScale / this.heightScale;
+            this.widthScale = Math.min(Math.max(this.widthScale * ratio, 0.5), 2.0);
+        }
+        
+        this.heightScale = newHeightScale;
+        this.requestUpdate();
+        this.updateWindowDimensions();
+    }
+
+    handleAspectRatioChange(e) {
+        this.maintainAspectRatio = e.target.checked;
+        this.requestUpdate();
+        this.updateWindowDimensions();
+    }
+
     async handleAdvancedModeChange(e) {
         this.advancedMode = e.target.checked;
         localStorage.setItem('advancedMode', this.advancedMode.toString());
@@ -1030,6 +1136,79 @@ export class CustomizeView extends LitElement {
                                 </div>
                                 <div class="form-description">
                                     Adjust the transparency of the interface background elements
+                                </div>
+                            </div>
+                        </div>
+
+                        </div>
+
+                        <div class="form-group full-width">
+                            <div class="slider-container">
+                                <div class="slider-header" style="justify-content: flex-start; gap: 10px;">
+                                    <label class="form-label" style="font-weight: 600; color: var(--accent-color);">Dimensions</label>
+                                    <div class="checkbox-group" style="padding: 2px 6px; margin: 0; background: none; border: none;">
+                                        <input 
+                                            type="checkbox" 
+                                            class="checkbox-input"
+                                            ?checked=${this.maintainAspectRatio}
+                                            @change=${this.handleAspectRatioChange}
+                                        >
+                                        <label class="checkbox-label" @click=${() => this.handleAspectRatioChange({ target: { checked: !this.maintainAspectRatio } })}>
+                                            Lock Aspect Ratio
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; gap: 20px; margin-top: 5px;">
+                                    <div style="flex: 1;">
+                                        <div class="slider-header">
+                                            <label class="form-label">Width</label>
+                                            <span class="slider-value">${Math.round((this.widthScale || 1.0) * 100)}%</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <button 
+                                                class="control-btn" 
+                                                @click=${this.handleWidthDecrement}
+                                                style="background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 4px; padding: 2px 8px; cursor: pointer;"
+                                            >-</button>
+                                            <input
+                                                type="range"
+                                                class="slider-input"
+                                                min="0.5"
+                                                max="2.0"
+                                                step="0.05"
+                                                .value=${this.widthScale || 1.0}
+                                                @input=${this.handleWidthScaleChange}
+                                                style="flex: 1;"
+                                            />
+                                            <button 
+                                                class="control-btn" 
+                                                @click=${this.handleWidthIncrement}
+                                                style="background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 4px; padding: 2px 8px; cursor: pointer;"
+                                            >+</button>
+                                        </div>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <div class="slider-header">
+                                            <label class="form-label">Height</label>
+                                            <span class="slider-value">${Math.round((this.heightScale || 1.0) * 100)}%</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 8px; height: 26px;">
+                                            <input
+                                                type="range"
+                                                class="slider-input"
+                                                min="0.5"
+                                                max="2.0"
+                                                step="0.05"
+                                                .value=${this.heightScale || 1.0}
+                                                @input=${this.handleHeightScaleChange}
+                                                style="flex: 1;"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-description" style="margin-top: 5px;">
+                                    Independently adjust width and height, or lock them to scale together.
                                 </div>
                             </div>
                         </div>

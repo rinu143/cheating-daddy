@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const os = require('os');
 const { applyStealthMeasures, startTitleRandomization } = require('./stealthFeatures');
 
+
+const { getLocalConfig } = require('../config');
+
 let mouseEventsIgnored = false;
 let windowResizing = false;
 let resizeAnimation = null;
@@ -27,8 +30,13 @@ function ensureDataDirectories() {
 
 function createWindow(sendToRenderer, geminiSessionRef, randomNames = null) {
     // Get layout preference (default to 'normal')
-    let windowWidth = 1100;
-    let windowHeight = 800;
+    // Get layout preference (default to 'normal') and scale
+    const config = getLocalConfig();
+    const widthScale = config.widthScale || 1.0;
+    const heightScale = config.heightScale || 1.0;
+    
+    let windowWidth = Math.round(1100 * widthScale);
+    let windowHeight = Math.round(800 * heightScale);
 
     const mainWindow = new BrowserWindow({
         width: windowWidth,
@@ -484,29 +492,32 @@ function setupWindowIpcHandlers(mainWindow, sendToRenderer, geminiSessionRef) {
             console.log('Size update requested for view:', viewName, 'layout:', layoutMode);
 
             let targetWidth, targetHeight;
+            const config = getLocalConfig();
+            const widthScale = config.widthScale || 1.0;
+            const heightScale = config.heightScale || 1.0;
 
             // Determine base size from layout mode
-            const baseWidth = layoutMode === 'compact' ? 700 : 900;
-            const baseHeight = layoutMode === 'compact' ? 500 : 600;
+            const baseWidth = Math.round((layoutMode === 'compact' ? 700 : 900) * widthScale);
+            const baseHeight = Math.round((layoutMode === 'compact' ? 500 : 600) * heightScale);
 
             // Adjust height based on view
             switch (viewName) {
                 case 'customize':
                 case 'settings':
                     targetWidth = baseWidth;
-                    targetHeight = layoutMode === 'compact' ? 700 : 800;
+                    targetHeight = Math.round((layoutMode === 'compact' ? 700 : 800) * heightScale);
                     break;
                 case 'help':
                     targetWidth = baseWidth;
-                    targetHeight = layoutMode === 'compact' ? 650 : 750;
+                    targetHeight = Math.round((layoutMode === 'compact' ? 650 : 750) * heightScale);
                     break;
                 case 'history':
                     targetWidth = baseWidth;
-                    targetHeight = layoutMode === 'compact' ? 650 : 750;
+                    targetHeight = Math.round((layoutMode === 'compact' ? 650 : 750) * heightScale);
                     break;
                 case 'advanced':
                     targetWidth = baseWidth;
-                    targetHeight = layoutMode === 'compact' ? 600 : 700;
+                    targetHeight = Math.round((layoutMode === 'compact' ? 600 : 700) * heightScale);
                     break;
                 case 'main':
                 case 'assistant':

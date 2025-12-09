@@ -7,6 +7,11 @@ const DEFAULT_CONFIG = {
     onboarded: false,
     stealthLevel: 'balanced',
     layout: 'normal',
+    stealthLevel: 'balanced',
+    layout: 'normal',
+    widthScale: 1.0,
+    heightScale: 1.0,
+    maintainAspectRatio: true,
 };
 
 // Get the config directory path based on OS
