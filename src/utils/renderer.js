@@ -746,7 +746,7 @@ function handleShortcut(shortcutKey) {
 }
 
 // Create reference to the main app element
-const cheatingDaddyApp = document.querySelector('cheating-daddy-app');
+const cheatingDaddyApp = document.querySelector('nvidia-premier-app');
 
 // Consolidated cheddar object - all functions in one place
 const cheddar = {

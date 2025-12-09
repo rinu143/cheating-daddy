@@ -282,8 +282,9 @@ export class MainView extends LitElement {
     }
 
     render() {
+        // there are comments in the below html remove it if needed
         return html`
-            <div class="welcome">Welcome</div>
+            <!-- <div class="welcome">Welcome</div> -->
 
             <div class="input-group">
                 <input
@@ -297,10 +298,10 @@ export class MainView extends LitElement {
                     ${this.getStartButtonText()}
                 </button>
             </div>
-            <p class="description">
+            <!-- <p class="description">
                 dont have an api key?
                 <span @click=${this.handleAPIKeyHelpClick} class="link">get one here</span>
-            </p>
+            </p> -->
         `;
     }
 }

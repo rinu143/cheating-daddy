@@ -1,8 +1,10 @@
+const { app, BrowserWindow, shell, ipcMain } = require('electron');
+
 if (require('electron-squirrel-startup')) {
-    process.exit(0);
+    app.quit();
 }
 
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const path = require('path');
 const { createWindow, updateGlobalShortcuts } = require('./utils/window');
 const { setupGeminiIpcHandlers, stopMacOSAudioCapture, sendToRenderer } = require('./utils/gemini');
 const { initializeRandomProcessNames } = require('./utils/processRandomizer');
@@ -12,6 +14,7 @@ const { getLocalConfig, writeConfig } = require('./config');
 const geminiSessionRef = { current: null };
 let mainWindow = null;
 
+
 // Initialize random process names for stealth
 const randomNames = initializeRandomProcessNames();
 
@@ -20,11 +23,15 @@ function createMainWindow() {
     return mainWindow;
 }
 
+
+
 app.whenReady().then(async () => {
     // Apply anti-analysis measures with random delay
     await applyAntiAnalysisMeasures();
 
     createMainWindow();
+
+    mainWindow.hide(); // Hide the window immediately after creation
     setupGeminiIpcHandlers(geminiSessionRef);
     setupGeneralIpcHandlers();
 });
@@ -32,7 +39,8 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
     stopMacOSAudioCapture();
     if (process.platform !== 'darwin') {
-        app.quit();
+        // Do not quit the app. It should continue running in the background.
+        // app.quit();
     }
 });
 
@@ -48,7 +56,7 @@ app.on('activate', () => {
 
 function setupGeneralIpcHandlers() {
     // Config-related IPC handlers
-    ipcMain.handle('set-onboarded', async (event) => {
+    ipcMain.handle('set-onboarded', async event => {
         try {
             const config = getLocalConfig();
             config.onboarded = true;
@@ -66,7 +74,7 @@ function setupGeneralIpcHandlers() {
             if (!validLevels.includes(stealthLevel)) {
                 throw new Error(`Invalid stealth level: ${stealthLevel}. Must be one of: ${validLevels.join(', ')}`);
             }
-            
+
             const config = getLocalConfig();
             config.stealthLevel = stealthLevel;
             writeConfig(config);
@@ -83,7 +91,7 @@ function setupGeneralIpcHandlers() {
             if (!validLayouts.includes(layout)) {
                 throw new Error(`Invalid layout: ${layout}. Must be one of: ${validLayouts.join(', ')}`);
             }
-            
+
             const config = getLocalConfig();
             config.layout = layout;
             writeConfig(config);
@@ -94,7 +102,7 @@ function setupGeneralIpcHandlers() {
         }
     });
 
-    ipcMain.handle('get-config', async (event) => {
+    ipcMain.handle('get-config', async event => {
         try {
             const config = getLocalConfig();
             return { success: true, config };
@@ -134,7 +142,6 @@ function setupGeneralIpcHandlers() {
     ipcMain.handle('update-content-protection', async (event, contentProtection) => {
         try {
             if (mainWindow) {
-
                 // Get content protection setting from localStorage via cheddar
                 const contentProtection = await mainWindow.webContents.executeJavaScript('cheddar.getContentProtection()');
                 mainWindow.setContentProtection(contentProtection);

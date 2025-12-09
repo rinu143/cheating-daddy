@@ -5,7 +5,7 @@ module.exports = {
     packagerConfig: {
         asar: true,
         extraResource: ['./src/assets/SystemAudioDump'],
-        name: 'Cheating Daddy',
+        name: 'NVIDIA Premier',
         icon: 'src/assets/logo',
         // use `security find-identity -v -p codesigning` to find your identity
         // for macos signing
@@ -30,11 +30,13 @@ module.exports = {
         {
             name: '@electron-forge/maker-squirrel',
             config: {
-                name: 'cheating-daddy',
-                productName: 'Cheating Daddy',
-                shortcutName: 'Cheating Daddy',
+                name: 'nvidia-premier',
+                productName: 'NVIDIA Premier',
+                shortcutName: 'NVIDIA Premier',
                 createDesktopShortcut: true,
                 createStartMenuShortcut: true,
+                setupIcon: 'src/assets/logo.ico',
+                iconUrl: 'https://raw.githubusercontent.com/rinu143/cheating-daddy/master/src/assets/logo.ico',
             },
         },
         {
@@ -46,13 +48,13 @@ module.exports = {
             platforms: ['linux'],
             config: {
                 options: {
-                    name: 'Cheating Daddy',
-                    productName: 'Cheating Daddy',
+                    name: 'NVIDIA Premier',
+                    productName: 'NVIDIA Premier',
                     genericName: 'AI Assistant',
                     description: 'AI assistant for interviews and learning',
                     categories: ['Development', 'Education'],
-                    icon: 'src/assets/logo.png'
-                }
+                    icon: 'src/assets/logo.png',
+                },
             },
         },
     ],
