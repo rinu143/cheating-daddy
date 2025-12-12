@@ -1,60 +1,71 @@
+# NVIDIA Premier
+
+A stealthy, efficient AI assistant designed for interviews, exams, and professional meetings. Powered by **OpenRouter**, it provides intelligent, context-aware responses on command without invasive always-on recording.
+
 <img width="1299" height="424" alt="cd (1)" src="https://github.com/user-attachments/assets/b25fff4d-043d-4f38-9985-f832ae0d0f6e" />
 
-## Recall.ai - API for desktop recording
+## ✨ Features
 
-If you’re looking for a hosted desktop recording API, consider checking out [Recall.ai](https://www.recall.ai/product/desktop-recording-sdk/?utm_source=github&utm_medium=sponsorship&utm_campaign=sohzm-nvidia-premier), an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.
+-   **Manual AI Analysis**: Trigger screen analysis only when needed using shortcuts (`Ctrl+Enter`). No constant background recording.
+-   **OpenRouter Integration**: Defaults to `nvidia/nemotron-nano-12b-v2-vl` (Free) but supports any OpenRouter model.
+-   **Stealth Design**:
+    -   Randomized process name to blend into Task Manager (e.g., "System Monitor").
+    -   Transparent, always-on-top overlay.
+    -   Click-through mode for unobtrusive usage.
+-   **Conversation Memory**: Toggle context awareness on/off. Keep context for follow-up questions or disable it for independent queries.
+-   **Multiple Profiles**: Tailored prompts for Interviews, Exams, Sales Calls, Presentations, and Negotiations.
+-   **Customizable**: Add your own custom system prompts to fine-tune the AI's behavior.
 
-This project is sponsored by Recall.ai.
+## 🚀 Setup
 
----
+1.  **Get an OpenRouter API Key**: Visit [OpenRouter](https://openrouter.ai/keys).
+2.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
+3.  **Run the App**:
+    ```bash
+    npm start
+    ```
+4.  **Build for Production**:
+    ```bash
+    npm run make
+    ```
 
-> [!NOTE]  
-> Use latest MacOS and Windows version, older versions have limited support
+## 📖 Usage
 
-> [!NOTE]  
-> During testing it wont answer if you ask something, you need to simulate interviewer asking question, which it will answer
+1.  **Initial Setup**: Launch the app and enter your OpenRouter API key.
+2.  **Select Profile**: Choose the mode that fits your scenario (e.g., **Interview** or **Exam**).
+3.  **Position Window**: Use the arrow keys (with `Ctrl/Cmd`) to move the overlay to a convenient spot.
+4.  **Trigger Analysis**:
+    -   **`Ctrl + Enter` (or `Cmd + Enter`)**: Instantly captures the screen, reads the content (text/code/images), and generates an answer.
+    -   You can also type a specific question in the input box and press `Ctrl + Enter` to send both the text and screen context.
 
-A real-time AI assistant that provides contextual help during video calls, interviews, presentations, and meetings using screen capture and audio analysis.
+## ⌨️ Keyboard Shortcuts
 
-## Features
+| Shortcut                | Action                                       |
+| ----------------------- | -------------------------------------------- |
+| `Ctrl/Cmd + Enter`      | **Capture & Analyze** (Triggers AI response) |
+| `Ctrl/Cmd + Arrow Keys` | Move the window                              |
+| `Ctrl/Cmd + M`          | Toggle **Click-through Mode** (Mouse events) |
+| `Ctrl/Cmd + \`          | Go Back / Close Window                       |
 
--   **Live AI Assistance**: Real-time help powered by Google Gemini 2.0 Flash Live
--   **Screen & Audio Capture**: Analyzes what you see and hear for contextual responses
--   **Multiple Profiles**: Interview, Sales Call, Business Meeting, Presentation, Negotiation
--   **Transparent Overlay**: Always-on-top window that can be positioned anywhere
--   **Click-through Mode**: Make window transparent to clicks when needed
--   **Cross-platform**: Works on macOS, Windows, and Linux (kinda, dont use, just for testing rn)
+## 🛠️ Configuration
 
-## Setup
+Access the **Settings** menu to:
 
-1. **Get a Gemini API Key**: Visit [Google AI Studio](https://aistudio.google.com/apikey)
-2. **Install Dependencies**: `npm install`
-3. **Run the App**: `npm start`
+-   **Enable/Disable Conversation Memory**: Choose if the AI remembers previous turns.
+-   **Change Language**: Set the output language.
+-   **Edit Custom Prompts**: Add specific instructions (e.g., "Answer in Python only").
 
-## Usage
+## 🔒 Privacy & Security
 
-1. Enter your Gemini API key in the main window
-2. Choose your profile and language in settings
-3. Click "Start Session" to begin
-4. Position the window using keyboard shortcuts
-5. The AI will provide real-time assistance based on your screen and what interview asks
+-   **No Always-On Recording**: Audio and video are **only** captured when you explicitly trigger the shortcut.
+-   **Local Key Storage**: API keys are stored locally on your device.
+-   **Stealth Mode**: The application attempts to disguise its presence in the process list.
 
-## Keyboard Shortcuts
+## 📋 Requirements
 
--   **Window Movement**: `Ctrl/Cmd + Arrow Keys` - Move window
--   **Click-through**: `Ctrl/Cmd + M` - Toggle mouse events
--   **Close/Back**: `Ctrl/Cmd + \` - Close window or go back
--   **Send Message**: `Enter` - Send text to AI
-
-## Audio Capture
-
--   **macOS**: [SystemAudioDump](https://github.com/Mohammed-Yasin-Mulla/Sound) for system audio
--   **Windows**: Loopback audio capture
--   **Linux**: Microphone input
-
-## Requirements
-
--   Electron-compatible OS (macOS, Windows, Linux)
--   Gemini API key
--   Screen recording permissions
--   Microphone/audio permissions
+-   Windows, macOS, or Linux (Electron-compatible)
+-   Active Internet Connection (for API access)
+-   OpenRouter API Key

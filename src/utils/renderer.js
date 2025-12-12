@@ -22,85 +22,7 @@ let screenshotInterval = null;
 let hiddenVideo = null;
 let offscreenCanvas = null;
 let offscreenContext = null;
-let currentImageQuality = 'medium'; // Store current image quality for manual screenshots
-
-const isLinux = process.platform === 'linux';
-const isMacOS = process.platform === 'darwin';
-
-// Token tracking system for rate limiting
-let tokenTracker = {
-    tokens: [], // Array of {timestamp, count, type} objects
-    audioStartTime: null,
-
-    // Add tokens to the tracker
-    addTokens(count, type = 'image') {
-        const now = Date.now();
-        this.tokens.push({
-            timestamp: now,
-            count: count,
-            type: type,
-        });
-
-        // Clean old tokens (older than 1 minute)
-        this.cleanOldTokens();
-    },
-
-    // Calculate image tokens based on Gemini 2.0 rules
-    calculateImageTokens(width, height) {
-        // Images ≤384px in both dimensions = 258 tokens
-        if (width <= 384 && height <= 384) {
-            return 258;
-        }
-
-        // Larger images are tiled into 768x768 chunks, each = 258 tokens
-        const tilesX = Math.ceil(width / 768);
-        const tilesY = Math.ceil(height / 768);
-        const totalTiles = tilesX * tilesY;
-
-        return totalTiles * 258;
-    },
-
-    // Track audio tokens continuously
-
-    // Clean tokens older than 1 minute
-    cleanOldTokens() {
-        const oneMinuteAgo = Date.now() - 60 * 1000;
-        this.tokens = this.tokens.filter(token => token.timestamp > oneMinuteAgo);
-    },
-
-    // Get total tokens in the last minute
-    getTokensInLastMinute() {
-        this.cleanOldTokens();
-        return this.tokens.reduce((total, token) => total + token.count, 0);
-    },
-
-    // Check if we should throttle based on settings
-    shouldThrottle() {
-        // Get rate limiting settings from localStorage
-        const throttleEnabled = localStorage.getItem('throttleTokens') === 'true';
-        if (!throttleEnabled) {
-            return false;
-        }
-
-        const maxTokensPerMin = parseInt(localStorage.getItem('maxTokensPerMin') || '1000000', 10);
-        const throttleAtPercent = parseInt(localStorage.getItem('throttleAtPercent') || '75', 10);
-
-        const currentTokens = this.getTokensInLastMinute();
-        const throttleThreshold = Math.floor((maxTokensPerMin * throttleAtPercent) / 100);
-
-        console.log(`Token check: ${currentTokens}/${maxTokensPerMin} (throttle at ${throttleThreshold})`);
-
-        return currentTokens >= throttleThreshold;
-    },
-
-    // Reset the tracker
-    reset() {
-        this.tokens = [];
-        this.audioStartTime = null;
-    },
-};
-
-// Token tracker audio logic removed
+let currentImageQuality = 'medium'; // Default quality
 
 async function initializeGemini(profile = 'interview', language = 'en-US') {
     const apiKey = localStorage.getItem('apiKey')?.trim();
@@ -116,24 +38,12 @@ async function initializeGemini(profile = 'interview', language = 'en-US') {
 
 // Listen for status updates
 ipcRenderer.on('update-status', (event, status) => {
-    console.log('Status update:', status);
+    // console.log('Status update:', status);
     cheddar.setStatus(status);
 });
 
-// Listen for responses - REMOVED: This is handled in CheatingDaddyApp.js to avoid duplicates
-// ipcRenderer.on('update-response', (event, response) => {
-//     console.log('Gemini response:', response);
-//     cheddar.e().setResponse(response);
-//     // You can add UI elements to display the response if needed
-// });
-
 async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'medium') {
-    // Store the image quality for manual screenshots
     currentImageQuality = imageQuality;
-
-    // Reset token tracker when starting new capture session
-    tokenTracker.reset();
-    console.log('🎯 Token tracker reset for new capture session');
 
     try {
         // Get screen capture (Video Only)
@@ -163,14 +73,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
 }
 
 async function captureScreenshot(imageQuality = 'medium', isManual = false) {
-    console.log(`Capturing ${isManual ? 'manual' : 'automated'} screenshot...`);
     if (!mediaStream) return;
-
-    // Check rate limiting for automated screenshots only
-    if (!isManual && tokenTracker.shouldThrottle()) {
-        console.log('⚠️ Automated screenshot skipped due to rate limiting');
-        return;
-    }
 
     // Lazy init of video element
     if (!hiddenVideo) {
@@ -194,22 +97,10 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
 
     // Check if video is ready
     if (hiddenVideo.readyState < 2) {
-        console.warn('Video not ready yet, skipping screenshot');
         return;
     }
 
     offscreenContext.drawImage(hiddenVideo, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
-
-    // Check if image was drawn properly by sampling a pixel
-    const imageData = offscreenContext.getImageData(0, 0, 1, 1);
-    const isBlank = imageData.data.every((value, index) => {
-        // Check if all pixels are black (0,0,0) or transparent
-        return index === 3 ? true : value === 0;
-    });
-
-    if (isBlank) {
-        console.warn('Screenshot appears to be blank/black');
-    }
 
     let qualityValue;
     switch (imageQuality) {
@@ -230,7 +121,6 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
         offscreenCanvas.toBlob(
             async blob => {
                 if (!blob) {
-                    console.error('Failed to create blob from canvas');
                     resolve(null);
                     return;
                 }
@@ -239,32 +129,21 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
                 reader.onloadend = async () => {
                     const base64data = reader.result.split(',')[1];
 
-                    // Validate base64 data
                     if (!base64data || base64data.length < 100) {
-                        console.error('Invalid base64 data generated');
                         resolve(null);
                         return;
                     }
 
                     if (isManual) {
-                        // In manual mode, return the data to be sent with the prompt
                         resolve(base64data);
                         return;
                     }
 
                     // Automatic mode: send immediately
-                    const result = await ipcRenderer.invoke('send-image-content', {
+                    await ipcRenderer.invoke('send-image-content', {
                         data: base64data,
                     });
 
-                    if (result.success) {
-                        // Track image tokens after successful send
-                        const imageTokens = tokenTracker.calculateImageTokens(offscreenCanvas.width, offscreenCanvas.height);
-                        tokenTracker.addTokens(imageTokens, 'image');
-                        console.log(`📊 Image sent successfully - ${imageTokens} tokens used (${offscreenCanvas.width}x${offscreenCanvas.height})`);
-                    } else {
-                        console.error('Failed to send image:', result.error);
-                    }
                     resolve(true);
                 };
                 reader.readAsDataURL(blob);
@@ -335,28 +214,17 @@ If the question type is unclear, state: “Uncertain — best guess response bel
 
 Your answer must always follow these rules exactly.`;
 
-    // const prompt =
-    //     customPrompt ||
-    //     "detect question type — MCQ, Code, or Descriptive — and respond with the following strict structure: **MCQ:** output only `Option <letter> ` and the short answer text (no extra commentary); **Code:** begin with a 2–4 bullet-point approach, then the complete working code block, then a short `Notes:` section with key points or pitfalls; **Descriptive:** write the answer following any 'Answer Expectations' or instructions visible in the image, match the depth to the marks shown in the green box, and append `Marks: <n>` at the end; always follow instructions visible in the image, format clearly, avoid unnecessary information";
-
     // Send combined message
     await sendMultimodalMessage(prompt, base64Image);
 }
 
 async function sendMultimodalMessage(text, image) {
     if (!text || !image) {
-        console.warn('Cannot send empty multimodal message');
-        returnResult = { success: false, error: 'Missing text or image' };
-        return returnResult;
+        return { success: false, error: 'Missing text or image' };
     }
 
     try {
         const result = await ipcRenderer.invoke('send-multimodal-message', { text, image });
-        if (result.success) {
-            console.log('Multimodal message sent successfully');
-        } else {
-            console.error('Failed to send multimodal message:', result.error);
-        }
         return result;
     } catch (error) {
         console.error('Error sending multimodal message:', error);
@@ -391,17 +259,11 @@ function stopCapture() {
 // Send text message to Gemini
 async function sendTextMessage(text) {
     if (!text || text.trim().length === 0) {
-        console.warn('Cannot send empty text message');
         return { success: false, error: 'Empty message' };
     }
 
     try {
         const result = await ipcRenderer.invoke('send-text-message', text);
-        if (result.success) {
-            console.log('Text message sent successfully');
-        } else {
-            console.error('Failed to send text message:', result.error);
-        }
         return result;
     } catch (error) {
         console.error('Error sending text message:', error);
@@ -495,7 +357,7 @@ async function getAllConversationSessions() {
 ipcRenderer.on('save-conversation-turn', async (event, data) => {
     try {
         await saveConversationSession(data.sessionId, data.fullHistory);
-        console.log('Conversation session saved:', data.sessionId);
+        // console.log('Conversation session saved:', data.sessionId);
     } catch (error) {
         console.error('Error saving conversation session:', error);
     }
@@ -578,10 +440,6 @@ const cheddar = {
         const contentProtection = localStorage.getItem('contentProtection');
         return contentProtection !== null ? contentProtection === 'true' : true;
     },
-
-    // Platform detection
-    isLinux: isLinux,
-    isMacOS: isMacOS,
 };
 
 // Make it globally available
