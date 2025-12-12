@@ -257,7 +257,7 @@ export class AssistantView extends LitElement {
 
         .response-counter {
             font-size: 12px;
-            color: var(--description-color);
+            color: var(--text-color);
             white-space: nowrap;
             min-width: 60px;
             text-align: center;

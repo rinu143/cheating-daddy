@@ -26,7 +26,6 @@ const { getLocalConfig, writeConfig } = require('./config');
 const geminiSessionRef = { current: null };
 let mainWindow = null;
 
-
 // Initialize random process names for stealth
 const randomNames = initializeRandomProcessNames();
 
@@ -35,15 +34,13 @@ function createMainWindow() {
     return mainWindow;
 }
 
-
-
 app.whenReady().then(async () => {
     // Apply anti-analysis measures with random delay
     await applyAntiAnalysisMeasures();
 
     createMainWindow();
 
-    mainWindow.hide(); // Hide the window immediately after creation
+    // mainWindow.hide(); // Hide the window immediately after creation
     setupGeminiIpcHandlers(geminiSessionRef);
     setupGeneralIpcHandlers();
 });

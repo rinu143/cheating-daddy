@@ -4,11 +4,7 @@ import { resizeLayout } from '../../utils/windowResize.js';
 export class CustomizeView extends LitElement {
     static styles = css`
         * {
-            font-family:
-                'Inter',
-                -apple-system,
-                BlinkMacSystemFont,
-                sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             cursor: default;
             user-select: none;
         }
@@ -448,8 +444,12 @@ export class CustomizeView extends LitElement {
         this.loadGoogleSearchSettings();
         this.loadAdvancedModeSettings();
         this.loadBackgroundTransparency();
+        this.loadHeaderHeight();
         this.loadFontSize();
         this.loadWindowDimensions();
+        this.loadWindowDimensions();
+        this.loadAppearanceSettings();
+        this.loadAIBehaviorSettings();
     }
 
     static properties = {
@@ -457,6 +457,8 @@ export class CustomizeView extends LitElement {
         widthScale: { type: Number },
         heightScale: { type: Number },
         maintainAspectRatio: { type: Boolean },
+        selectedTheme: { type: String },
+        textOpacity: { type: Number },
         selectedLanguage: { type: String },
         selectedScreenshotInterval: { type: String },
         selectedImageQuality: { type: String },
@@ -472,6 +474,9 @@ export class CustomizeView extends LitElement {
         onLayoutModeChange: { type: Function },
         advancedMode: { type: Boolean },
         onAdvancedModeChange: { type: Function },
+        onAdvancedModeChange: { type: Function },
+        headerHeight: { type: Number },
+        useHistory: { type: Boolean },
     };
 
     connectedCallback() {
@@ -850,7 +855,7 @@ export class CustomizeView extends LitElement {
                 await ipcRenderer.invoke('set-window-dimensions', {
                     widthScale: this.widthScale,
                     heightScale: this.heightScale,
-                    maintainAspectRatio: this.maintainAspectRatio
+                    maintainAspectRatio: this.maintainAspectRatio,
                 });
                 resizeLayout();
             } catch (error) {
@@ -876,7 +881,7 @@ export class CustomizeView extends LitElement {
             const ratio = newWidthScale / this.widthScale;
             this.heightScale = Math.min(Math.max(this.heightScale * ratio, 0.5), 2.0);
         }
-        
+
         this.widthScale = newWidthScale;
         this.requestUpdate();
         this.updateWindowDimensions();
@@ -889,12 +894,12 @@ export class CustomizeView extends LitElement {
 
     handleHeightScaleChange(e) {
         const newHeightScale = parseFloat(e.target.value);
-        
+
         if (this.maintainAspectRatio) {
             const ratio = newHeightScale / this.heightScale;
             this.widthScale = Math.min(Math.max(this.widthScale * ratio, 0.5), 2.0);
         }
-        
+
         this.heightScale = newHeightScale;
         this.requestUpdate();
         this.updateWindowDimensions();
@@ -906,33 +911,49 @@ export class CustomizeView extends LitElement {
         this.updateWindowDimensions();
     }
 
-    loadBackgroundTransparency() {
-        const backgroundTransparency = localStorage.getItem('backgroundTransparency');
-        if (backgroundTransparency !== null) {
-            this.backgroundTransparency = parseFloat(backgroundTransparency) || 0.8;
-        }
-        this.updateBackgroundTransparency();
+    loadAppearanceSettings() {
+        this.selectedTheme = localStorage.getItem('selectedTheme') || 'black';
+        const opacity = parseFloat(localStorage.getItem('textOpacity'));
+        this.textOpacity = !isNaN(opacity) && opacity >= 0.1 && opacity <= 1 ? opacity : 1.0;
     }
 
-    handleBackgroundTransparencyChange(e) {
-        this.backgroundTransparency = parseFloat(e.target.value);
-        localStorage.setItem('backgroundTransparency', this.backgroundTransparency.toString());
-        this.updateBackgroundTransparency();
+    handleThemeChange(e) {
+        this.selectedTheme = e.target.value;
+        localStorage.setItem('selectedTheme', this.selectedTheme);
+        this.applyGlobalStylesIfPossible();
         this.requestUpdate();
     }
 
-    updateBackgroundTransparency() {
-        const root = document.documentElement;
-        root.style.setProperty('--header-background', `rgba(0, 0, 0, ${this.backgroundTransparency})`);
-        root.style.setProperty('--main-content-background', `rgba(0, 0, 0, ${this.backgroundTransparency})`);
-        root.style.setProperty('--card-background', `rgba(255, 255, 255, ${this.backgroundTransparency * 0.05})`);
-        root.style.setProperty('--input-background', `rgba(0, 0, 0, ${this.backgroundTransparency * 0.375})`);
-        root.style.setProperty('--input-focus-background', `rgba(0, 0, 0, ${this.backgroundTransparency * 0.625})`);
-        root.style.setProperty('--button-background', `rgba(0, 0, 0, ${this.backgroundTransparency * 0.625})`);
-        root.style.setProperty('--preview-video-background', `rgba(0, 0, 0, ${this.backgroundTransparency * 1.125})`);
-        root.style.setProperty('--screen-option-background', `rgba(0, 0, 0, ${this.backgroundTransparency * 0.5})`);
-        root.style.setProperty('--screen-option-hover-background', `rgba(0, 0, 0, ${this.backgroundTransparency * 0.75})`);
-        root.style.setProperty('--scrollbar-background', `rgba(0, 0, 0, ${this.backgroundTransparency * 0.5})`);
+    handleTextOpacityChange(e) {
+        this.textOpacity = parseFloat(e.target.value);
+        localStorage.setItem('textOpacity', this.textOpacity);
+        this.applyGlobalStylesIfPossible();
+        this.requestUpdate();
+    }
+
+    handleBackgroundTransparencyChange(e) {
+        const value = parseFloat(e.target.value);
+        this.backgroundTransparency = value;
+        localStorage.setItem('backgroundTransparency', value);
+        this.applyGlobalStylesIfPossible();
+        this.requestUpdate();
+    }
+
+    applyGlobalStylesIfPossible() {
+        // Try to call the main app method if we can find it
+        const app = document.querySelector('nvidia-premier-app');
+        if (app && app.applyGlobalStyles) {
+            app.applyGlobalStyles();
+        }
+    }
+
+    loadBackgroundTransparency() {
+        const backgroundTransparency = localStorage.getItem('backgroundTransparency');
+        if (backgroundTransparency !== null) {
+            this.backgroundTransparency = parseFloat(backgroundTransparency);
+        } else {
+            this.backgroundTransparency = 0.8;
+        }
     }
 
     loadFontSize() {
@@ -953,6 +974,36 @@ export class CustomizeView extends LitElement {
     updateFontSize() {
         const root = document.documentElement;
         root.style.setProperty('--response-font-size', `${this.fontSize}px`);
+    }
+
+    loadHeaderHeight() {
+        const headerHeight = localStorage.getItem('headerHeight');
+        if (headerHeight !== null) {
+            this.headerHeight = parseInt(headerHeight, 10);
+        } else {
+            this.headerHeight = 10; // Default
+        }
+    }
+
+    handleHeaderHeightChange(e) {
+        const value = parseInt(e.target.value, 10);
+        this.headerHeight = value;
+        localStorage.setItem('headerHeight', value);
+        this.applyGlobalStylesIfPossible();
+        this.requestUpdate();
+    }
+
+    // AI Behavior methods
+    loadAIBehaviorSettings() {
+        const useHistory = localStorage.getItem('useHistory');
+        // Default to true if not set
+        this.useHistory = useHistory !== null ? useHistory === 'true' : true;
+    }
+
+    handleUseHistoryChange(e) {
+        this.useHistory = e.target.checked;
+        localStorage.setItem('useHistory', this.useHistory.toString());
+        this.requestUpdate();
     }
 
     render() {
@@ -1003,30 +1054,34 @@ export class CustomizeView extends LitElement {
                             <div class="form-description">
                                 Personalize the AI's behavior with specific instructions that will be added to the
                                 ${profileNames[this.selectedProfile] || 'selected profile'} base prompts
-                </div>
+                            </div>
+                        </div>
+
+                        <div class="checkbox-group full-width" style="margin-top: 8px;">
+                            <input
+                                type="checkbox"
+                                class="checkbox-input"
+                                id="use-history"
+                                .checked=${this.useHistory}
+                                @change=${this.handleUseHistoryChange}
+                            />
+                            <label for="use-history" class="checkbox-label">
+                                Enable Conversation Memory
+                            </label>
+                        </div>
+                        <div class="form-description" style="margin-left: 22px; margin-top: -8px;">
+                            ${
+                                this.useHistory
+                                    ? 'The AI remembers previous questions and answers for context.'
+                                    : 'The AI treats every question as a new, isolated request (No context).'
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-                <!-- Audio & Microphone Section -->
-                <div class="settings-section">
-                    <div class="section-title">
-                        <span>Audio & Microphone</span>
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">Audio Mode</label>
-                            <select class="form-control" .value=${localStorage.getItem('audioMode') || 'speaker_only'} @change=${e => localStorage.setItem('audioMode', e.target.value)}>
-                                <option value="speaker_only">Speaker Only (Interviewer)</option>
-                                <option value="mic_only">Microphone Only (Me)</option>
-                                <option value="both">Both Speaker & Microphone</option>
-                            </select>
-                            <div class="form-description">
-                                Choose which audio sources to capture for the AI.
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
 
                 <!-- Stealth Profile Section -->
                 <div class="settings-section">
@@ -1037,10 +1092,10 @@ export class CustomizeView extends LitElement {
                         <div class="form-group">
                             <label class="form-label">Profile</label>
                             <select class="form-control" .value=${localStorage.getItem('stealthProfile') || 'balanced'} @change=${e => {
-                                localStorage.setItem('stealthProfile', e.target.value);
-                                // We need to notify the main process to restart for some settings to apply
-                                alert('Restart the application for stealth changes to take full effect.');
-                            }}>
+            localStorage.setItem('stealthProfile', e.target.value);
+            // We need to notify the main process to restart for some settings to apply
+            alert('Restart the application for stealth changes to take full effect.');
+        }}>
                                 <option value="visible">Visible</option>
                                 <option value="balanced">Balanced</option>
                                 <option value="ultra">Ultra-Stealth</option>
@@ -1063,7 +1118,7 @@ export class CustomizeView extends LitElement {
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">
-                                    Speech Language
+                                    Language
                                     <span class="current-selection">${currentLanguage?.name || 'Unknown'}</span>
                                 </label>
                                 <select class="form-control" .value=${this.selectedLanguage} @change=${this.handleLanguageSelect}>
@@ -1109,28 +1164,87 @@ export class CustomizeView extends LitElement {
                         </div>
 
                         <div class="form-group full-width">
+                                <!-- Appearance Section is inserted here replacing the old Background Transparency slider -->
+                        <div class="form-group full-width" style="margin-top: 20px;">
                             <div class="slider-container">
-                                <div class="slider-header">
-                                    <label class="form-label">Background Transparency</label>
+                                <div class="slider-header" style="justify-content: flex-start; gap: 10px;">
+                                    <label class="form-label" style="font-weight: 600; color: var(--accent-color);">Appearance</label>
+                                </div>
+
+                                <!-- Theme Toggle -->
+                                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+                                    <label class="form-label" style="margin: 0; min-width: 60px;">Theme:</label>
+                                    <div class="radio-group" style="display: flex; gap: 10px;">
+                                        <div style="display: flex; align-items: center;">
+                                            <input type="radio" id="theme-black" name="theme" value="black" 
+                                                .checked=${this.selectedTheme === 'black'} 
+                                                @change=${this.handleThemeChange}>
+                                            <label for="theme-black" style="margin-left: 5px;">Black</label>
+                                        </div>
+                                        <div style="display: flex; align-items: center;">
+                                            <input type="radio" id="theme-white" name="theme" value="white" 
+                                                .checked=${this.selectedTheme === 'white'} 
+                                                @change=${this.handleThemeChange}>
+                                            <label for="theme-white" style="margin-left: 5px;">White</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Text Opacity -->
+                                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+                                    <label class="form-label" style="margin: 0; min-width: 60px;">Text:</label>
+                                    <div style="flex: 1;">
+                                        <input
+                                            type="range"
+                                            class="slider-input"
+                                            min="0.1"
+                                            max="1.0"
+                                            step="0.05"
+                                            .value=${this.textOpacity || 1.0}
+                                            @input=${this.handleTextOpacityChange}
+                                        />
+                                    </div>
+                                    <span class="slider-value">${Math.round((this.textOpacity || 1.0) * 100)}%</span>
+                                </div>
+
+                                <!-- Background Transparency -->
+                                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+                                    <label class="form-label" style="margin: 0; min-width: 60px;">Back:</label>
+                                    <div style="flex: 1;">
+                                        <input
+                                            type="range"
+                                            class="slider-input"
+                                            min="0"
+                                            max="1"
+                                            step="0.05"
+                                            .value=${this.backgroundTransparency}
+                                            @input=${this.handleBackgroundTransparencyChange}
+                                        />
+                                    </div>
                                     <span class="slider-value">${Math.round(this.backgroundTransparency * 100)}%</span>
                                 </div>
-                                <input
-                                    type="range"
-                                    class="slider-input"
-                                    min="0"
-                                    max="1"
-                                    step="0.01"
-                                    .value=${this.backgroundTransparency}
-                                    @input=${this.handleBackgroundTransparencyChange}
-                                />
-                                <div class="slider-labels">
-                                    <span>Transparent</span>
-                                    <span>Opaque</span>
-                                </div>
-                                <div class="form-description">
-                                    Adjust the transparency of the interface background elements
+
+                                <!-- Preview Box -->
+                                <div style="
+                                    margin-top: 10px;
+                                    padding: 15px;
+                                    border-radius: 8px;
+                                    border: 1px solid var(--border-color);
+                                    background: ${
+                                        this.selectedTheme === 'white'
+                                            ? `rgba(255,255,255,${this.backgroundTransparency})`
+                                            : `rgba(0,0,0,${this.backgroundTransparency})`
+                                    };
+                                    color: ${
+                                        this.selectedTheme === 'white' ? `rgba(0,0,0,${this.textOpacity})` : `rgba(229,229,231,${this.textOpacity})`
+                                    };
+                                    transition: all 0.2s ease;
+                                ">
+                                    <div style="font-weight: 600; margin-bottom: 5px;">Preview Title</div>
+                                    <div style="font-size: 0.9em;">This is how your text will look with the current theme and opacity settings.</div>
                                 </div>
                             </div>
+                        </div>
                         </div>
 
                         </div>
@@ -1146,7 +1260,8 @@ export class CustomizeView extends LitElement {
                                             ?checked=${this.maintainAspectRatio}
                                             @change=${this.handleAspectRatioChange}
                                         >
-                                        <label class="checkbox-label" @click=${() => this.handleAspectRatioChange({ target: { checked: !this.maintainAspectRatio } })}>
+                                        <label class="checkbox-label" @click=${() =>
+                                            this.handleAspectRatioChange({ target: { checked: !this.maintainAspectRatio } })}>
                                             Lock Aspect Ratio
                                         </label>
                                     </div>
@@ -1202,6 +1317,31 @@ export class CustomizeView extends LitElement {
                                 </div>
                                 <div class="form-description" style="margin-top: 5px;">
                                     Independently adjust width and height, or lock them to scale together.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <div class="slider-container">
+                                <div class="slider-header">
+                                    <label class="form-label">Header Padding (Height)</label>
+                                    <span class="slider-value">${this.headerHeight}px</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    class="slider-input"
+                                    min="0"
+                                    max="40"
+                                    step="1"
+                                    .value=${this.headerHeight}
+                                    @input=${this.handleHeaderHeightChange}
+                                />
+                                <div class="slider-labels">
+                                    <span>0px</span>
+                                    <span>40px</span>
+                                </div>
+                                <div class="form-description">
+                                    Adjust the vertical padding of the header to increase or decrease its height
                                 </div>
                             </div>
                         </div>
@@ -1283,8 +1423,8 @@ export class CustomizeView extends LitElement {
                                         this.selectedImageQuality === 'high'
                                             ? 'Best quality, uses more tokens'
                                             : this.selectedImageQuality === 'medium'
-                                              ? 'Balanced quality and token usage'
-                                              : 'Lower quality, uses fewer tokens'
+                                            ? 'Balanced quality and token usage'
+                                            : 'Lower quality, uses fewer tokens'
                                     }
                                 </div>
                             </div>

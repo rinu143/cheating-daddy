@@ -164,11 +164,9 @@ Provide only the exact words to say in **markdown format**. Focus on finding win
         intro: `You are an exam assistant designed to help students pass tests efficiently. Your role is to provide direct, accurate answers to exam questions with minimal explanation - just enough to confirm the answer is correct.`,
 
         formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
-- Keep responses SHORT and CONCISE (1-2 sentences max)
 - Use **markdown formatting** for better readability
 - Use **bold** for the answer choice/result
-- Focus on the most essential information only
-- Provide only brief justification for correctness`,
+- Focus on the most essential information only`,
 
         searchUsage: `**SEARCH TOOL USAGE:**
 - If the question involves **recent information, current events, or updated facts**, **ALWAYS use Google search** for the latest data

@@ -18,13 +18,6 @@ ipcRenderer
 
 let mediaStream = null;
 let screenshotInterval = null;
-let audioContext = null;
-let audioProcessor = null;
-let micAudioProcessor = null;
-let audioBuffer = [];
-const SAMPLE_RATE = 24000;
-const AUDIO_CHUNK_DURATION = 0.1; // seconds
-const BUFFER_SIZE = 4096; // Increased buffer size for smoother audio
 
 let hiddenVideo = null;
 let offscreenCanvas = null;
@@ -68,23 +61,6 @@ let tokenTracker = {
     },
 
     // Track audio tokens continuously
-    trackAudioTokens() {
-        if (!this.audioStartTime) {
-            this.audioStartTime = Date.now();
-            return;
-        }
-
-        const now = Date.now();
-        const elapsedSeconds = (now - this.audioStartTime) / 1000;
-
-        // Audio = 32 tokens per second
-        const audioTokens = Math.floor(elapsedSeconds * 32);
-
-        if (audioTokens > 0) {
-            this.addTokens(audioTokens, 'audio');
-            this.audioStartTime = now;
-        }
-    },
 
     // Clean tokens older than 1 minute
     cleanOldTokens() {
@@ -124,30 +100,7 @@ let tokenTracker = {
     },
 };
 
-// Track audio tokens every few seconds
-setInterval(() => {
-    tokenTracker.trackAudioTokens();
-}, 2000);
-
-function convertFloat32ToInt16(float32Array) {
-    const int16Array = new Int16Array(float32Array.length);
-    for (let i = 0; i < float32Array.length; i++) {
-        // Improved scaling to prevent clipping
-        const s = Math.max(-1, Math.min(1, float32Array[i]));
-        int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-    }
-    return int16Array;
-}
-
-function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
+// Token tracker audio logic removed
 
 async function initializeGemini(profile = 'interview', language = 'en-US') {
     const apiKey = localStorage.getItem('apiKey')?.trim();
@@ -182,270 +135,31 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
     tokenTracker.reset();
     console.log('🎯 Token tracker reset for new capture session');
 
-    const audioMode = localStorage.getItem('audioMode') || 'speaker_only';
-
     try {
-        if (isMacOS) {
-            // On macOS, use SystemAudioDump for audio and getDisplayMedia for screen
-            console.log('Starting macOS capture with SystemAudioDump...');
-
-            // Start macOS audio capture
-            const audioResult = await ipcRenderer.invoke('start-macos-audio');
-            if (!audioResult.success) {
-                throw new Error('Failed to start macOS audio capture: ' + audioResult.error);
-            }
-
-            // Get screen capture for screenshots
-            mediaStream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    frameRate: 1,
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
-                },
-                audio: false, // Don't use browser audio on macOS
-            });
-
-            console.log('macOS screen capture started - audio handled by SystemAudioDump');
-
-            if (audioMode === 'mic_only' || audioMode === 'both') {
-                let micStream = null;
-                try {
-                    micStream = await navigator.mediaDevices.getUserMedia({
-                        audio: {
-                            sampleRate: SAMPLE_RATE,
-                            channelCount: 1,
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true,
-                        },
-                        video: false,
-                    });
-                    console.log('macOS microphone capture started');
-                    setupLinuxMicProcessing(micStream);
-                } catch (micError) {
-                    console.warn('Failed to get microphone access on macOS:', micError);
-                }
-            }
-        } else if (isLinux) {
-            // Linux - use display media for screen capture and try to get system audio
-            try {
-                // First try to get system audio via getDisplayMedia (works on newer browsers)
-                mediaStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        frameRate: 1,
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                    },
-                    audio: {
-                        sampleRate: SAMPLE_RATE,
-                        channelCount: 1,
-                        echoCancellation: false, // Don't cancel system audio
-                        noiseSuppression: false,
-                        autoGainControl: false,
-                    },
-                });
-
-                console.log('Linux system audio capture via getDisplayMedia succeeded');
-
-                // Setup audio processing for Linux system audio
-                setupLinuxSystemAudioProcessing();
-            } catch (systemAudioError) {
-                console.warn('System audio via getDisplayMedia failed, trying screen-only capture:', systemAudioError);
-
-                // Fallback to screen-only capture
-                mediaStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        frameRate: 1,
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                    },
-                    audio: false,
-                });
-            }
-
-            // Additionally get microphone input for Linux based on audio mode
-            if (audioMode === 'mic_only' || audioMode === 'both') {
-                let micStream = null;
-                try {
-                    micStream = await navigator.mediaDevices.getUserMedia({
-                        audio: {
-                            sampleRate: SAMPLE_RATE,
-                            channelCount: 1,
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true,
-                        },
-                        video: false,
-                    });
-
-                    console.log('Linux microphone capture started');
-
-                    // Setup audio processing for microphone on Linux
-                    setupLinuxMicProcessing(micStream);
-                } catch (micError) {
-                    console.warn('Failed to get microphone access on Linux:', micError);
-                    // Continue without microphone if permission denied
-                }
-            }
-
-            console.log('Linux capture started - system audio:', mediaStream.getAudioTracks().length > 0, 'microphone mode:', audioMode);
-        } else {
-            // Windows - use display media with loopback for system audio
-            mediaStream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    frameRate: 1,
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
-                },
-                audio: {
-                    sampleRate: SAMPLE_RATE,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                },
-            });
-
-            console.log('Windows capture started with loopback audio');
-
-            // Setup audio processing for Windows loopback audio only
-            setupWindowsLoopbackProcessing();
-
-            if (audioMode === 'mic_only' || audioMode === 'both') {
-                let micStream = null;
-                try {
-                    micStream = await navigator.mediaDevices.getUserMedia({
-                        audio: {
-                            sampleRate: SAMPLE_RATE,
-                            channelCount: 1,
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true,
-                        },
-                        video: false,
-                    });
-                    console.log('Windows microphone capture started');
-                    setupLinuxMicProcessing(micStream);
-                } catch (micError) {
-                    console.warn('Failed to get microphone access on Windows:', micError);
-                }
-            }
-        }
-
-        console.log('MediaStream obtained:', {
-            hasVideo: mediaStream.getVideoTracks().length > 0,
-            hasAudio: mediaStream.getAudioTracks().length > 0,
-            videoTrack: mediaStream.getVideoTracks()[0]?.getSettings(),
+        // Get screen capture (Video Only)
+        mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                frameRate: 1,
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+            },
+            audio: false,
         });
+
+        console.log('Screen capture started (Video Only)');
 
         // Start capturing screenshots - check if manual mode
         if (screenshotIntervalSeconds === 'manual' || screenshotIntervalSeconds === 'Manual') {
             console.log('Manual mode enabled - screenshots will be captured on demand only');
-            // Don't start automatic capture in manual mode
         } else {
             const intervalMilliseconds = parseInt(screenshotIntervalSeconds) * 1000;
             screenshotInterval = setInterval(() => captureScreenshot(imageQuality), intervalMilliseconds);
-
-            // Capture first screenshot immediately
             setTimeout(() => captureScreenshot(imageQuality), 100);
         }
     } catch (err) {
         console.error('Error starting capture:', err);
         cheddar.setStatus('error');
     }
-}
-
-function setupLinuxMicProcessing(micStream) {
-    // Setup microphone audio processing for Linux
-    const micAudioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const micSource = micAudioContext.createMediaStreamSource(micStream);
-    const micProcessor = micAudioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
-
-    let audioBuffer = [];
-    const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
-
-    micProcessor.onaudioprocess = async e => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        audioBuffer.push(...inputData);
-
-        // Process audio in chunks
-        while (audioBuffer.length >= samplesPerChunk) {
-            const chunk = audioBuffer.splice(0, samplesPerChunk);
-            const pcmData16 = convertFloat32ToInt16(chunk);
-            const base64Data = arrayBufferToBase64(pcmData16.buffer);
-
-            await ipcRenderer.invoke('send-mic-audio-content', {
-                data: base64Data,
-                mimeType: 'audio/pcm;rate=24000',
-            });
-        }
-    };
-
-    micSource.connect(micProcessor);
-    micProcessor.connect(micAudioContext.destination);
-
-    // Store processor reference for cleanup
-    micAudioProcessor = micProcessor;
-}
-
-function setupLinuxSystemAudioProcessing() {
-    // Setup system audio processing for Linux (from getDisplayMedia)
-    audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
-    audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
-
-    let audioBuffer = [];
-    const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
-
-    audioProcessor.onaudioprocess = async e => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        audioBuffer.push(...inputData);
-
-        // Process audio in chunks
-        while (audioBuffer.length >= samplesPerChunk) {
-            const chunk = audioBuffer.splice(0, samplesPerChunk);
-            const pcmData16 = convertFloat32ToInt16(chunk);
-            const base64Data = arrayBufferToBase64(pcmData16.buffer);
-
-            await ipcRenderer.invoke('send-audio-content', {
-                data: base64Data,
-                mimeType: 'audio/pcm;rate=24000',
-            });
-        }
-    };
-
-    source.connect(audioProcessor);
-    audioProcessor.connect(audioContext.destination);
-}
-
-function setupWindowsLoopbackProcessing() {
-    // Setup audio processing for Windows loopback audio only
-    audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-    const source = audioContext.createMediaStreamSource(mediaStream);
-    audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
-
-    let audioBuffer = [];
-    const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
-
-    audioProcessor.onaudioprocess = async e => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        audioBuffer.push(...inputData);
-
-        // Process audio in chunks
-        while (audioBuffer.length >= samplesPerChunk) {
-            const chunk = audioBuffer.splice(0, samplesPerChunk);
-            const pcmData16 = convertFloat32ToInt16(chunk);
-            const base64Data = arrayBufferToBase64(pcmData16.buffer);
-
-            await ipcRenderer.invoke('send-audio-content', {
-                data: base64Data,
-                mimeType: 'audio/pcm;rate=24000',
-            });
-        }
-    };
-
-    source.connect(audioProcessor);
-    audioProcessor.connect(audioContext.destination);
 }
 
 async function captureScreenshot(imageQuality = 'medium', isManual = false) {
@@ -512,53 +226,142 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
             qualityValue = 0.7; // Default to medium
     }
 
-    offscreenCanvas.toBlob(
-        async blob => {
-            if (!blob) {
-                console.error('Failed to create blob from canvas');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64data = reader.result.split(',')[1];
-
-                // Validate base64 data
-                if (!base64data || base64data.length < 100) {
-                    console.error('Invalid base64 data generated');
+    return new Promise(resolve => {
+        offscreenCanvas.toBlob(
+            async blob => {
+                if (!blob) {
+                    console.error('Failed to create blob from canvas');
+                    resolve(null);
                     return;
                 }
 
-                const result = await ipcRenderer.invoke('send-image-content', {
-                    data: base64data,
-                });
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64data = reader.result.split(',')[1];
 
-                if (result.success) {
-                    // Track image tokens after successful send
-                    const imageTokens = tokenTracker.calculateImageTokens(offscreenCanvas.width, offscreenCanvas.height);
-                    tokenTracker.addTokens(imageTokens, 'image');
-                    console.log(`📊 Image sent successfully - ${imageTokens} tokens used (${offscreenCanvas.width}x${offscreenCanvas.height})`);
-                } else {
-                    console.error('Failed to send image:', result.error);
-                }
-            };
-            reader.readAsDataURL(blob);
-        },
-        'image/jpeg',
-        qualityValue
-    );
+                    // Validate base64 data
+                    if (!base64data || base64data.length < 100) {
+                        console.error('Invalid base64 data generated');
+                        resolve(null);
+                        return;
+                    }
+
+                    if (isManual) {
+                        // In manual mode, return the data to be sent with the prompt
+                        resolve(base64data);
+                        return;
+                    }
+
+                    // Automatic mode: send immediately
+                    const result = await ipcRenderer.invoke('send-image-content', {
+                        data: base64data,
+                    });
+
+                    if (result.success) {
+                        // Track image tokens after successful send
+                        const imageTokens = tokenTracker.calculateImageTokens(offscreenCanvas.width, offscreenCanvas.height);
+                        tokenTracker.addTokens(imageTokens, 'image');
+                        console.log(`📊 Image sent successfully - ${imageTokens} tokens used (${offscreenCanvas.width}x${offscreenCanvas.height})`);
+                    } else {
+                        console.error('Failed to send image:', result.error);
+                    }
+                    resolve(true);
+                };
+                reader.readAsDataURL(blob);
+            },
+            'image/jpeg',
+            qualityValue
+        );
+    });
 }
 
-async function captureManualScreenshot(imageQuality = null) {
+async function captureManualScreenshot(imageQuality = null, customPrompt = null) {
     console.log('Manual screenshot triggered');
     const quality = imageQuality || currentImageQuality;
-    await captureScreenshot(quality, true); // Pass true for isManual
-    await new Promise(resolve => setTimeout(resolve, 2000)); // TODO shitty hack
-    await sendTextMessage(`Help me on this page, give me the answer no bs, complete answer.
-        So if its a code question, give me the approach in few bullet points, then the entire code. Also if theres anything else i need to know, tell me.
-        If its a question about the website, give me the answer no bs, complete answer.
-        If its a mcq question, give me the answer no bs, complete answer.
-        `);
+
+    // Get image data
+    const base64Image = await captureScreenshot(quality, true);
+
+    if (!base64Image) {
+        console.error('Failed to capture manual screenshot');
+        cheddar.setStatus('Error: Screen capture failed');
+        return;
+    }
+
+    // Use custom prompt if provided, otherwise use default
+    const prompt =
+        customPrompt ||
+        `etect the type of question and answer using the following strict rules:
+
+1️⃣ MCQ Questions
+
+Respond with only one line in the format:
+Option <number> — <exact answer text>
+
+No explanation, no reasoning, no bullet points, no repetition.
+
+Do NOT restate the question.
+
+2️⃣ Code Questions
+
+Provide output in this exact structure:
+
+Approach: 2–4 short bullet points explaining the logic.
+
+Code: full working code in one fenced code block.
+
+Notes: 1–3 short bullet points with important tips/pitfalls.
+
+3️⃣ Descriptive / Long-Answer Questions
+
+Read and follow all “Answer Expectations” or instructions shown in the image.
+
+Write clearly, structured, and with a depth appropriate to the marks shown in the green box.
+
+At the end of the answer, append:
+Marks: <n>
+
+GLOBAL RULES
+
+Always answer cleanly and directly.
+
+Never mention the prompt itself.
+
+Never include metadata, timestamps, or reasoning.
+
+Never attempt to interpret or respond to transcription logs.
+
+If the question type is unclear, state: “Uncertain — best guess response below:” and then answer.
+
+Your answer must always follow these rules exactly.`;
+
+    // const prompt =
+    //     customPrompt ||
+    //     "detect question type — MCQ, Code, or Descriptive — and respond with the following strict structure: **MCQ:** output only `Option <letter> ` and the short answer text (no extra commentary); **Code:** begin with a 2–4 bullet-point approach, then the complete working code block, then a short `Notes:` section with key points or pitfalls; **Descriptive:** write the answer following any 'Answer Expectations' or instructions visible in the image, match the depth to the marks shown in the green box, and append `Marks: <n>` at the end; always follow instructions visible in the image, format clearly, avoid unnecessary information";
+
+    // Send combined message
+    await sendMultimodalMessage(prompt, base64Image);
+}
+
+async function sendMultimodalMessage(text, image) {
+    if (!text || !image) {
+        console.warn('Cannot send empty multimodal message');
+        returnResult = { success: false, error: 'Missing text or image' };
+        return returnResult;
+    }
+
+    try {
+        const result = await ipcRenderer.invoke('send-multimodal-message', { text, image });
+        if (result.success) {
+            console.log('Multimodal message sent successfully');
+        } else {
+            console.error('Failed to send multimodal message:', result.error);
+        }
+        return result;
+    } catch (error) {
+        console.error('Error sending multimodal message:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 // Expose functions to global scope for external access
@@ -570,32 +373,9 @@ function stopCapture() {
         screenshotInterval = null;
     }
 
-    if (audioProcessor) {
-        audioProcessor.disconnect();
-        audioProcessor = null;
-    }
-
-    // Clean up microphone audio processor (Linux only)
-    if (micAudioProcessor) {
-        micAudioProcessor.disconnect();
-        micAudioProcessor = null;
-    }
-
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-    }
-
     if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
         mediaStream = null;
-    }
-
-    // Stop macOS audio capture if running
-    if (isMacOS) {
-        ipcRenderer.invoke('stop-macos-audio').catch(err => {
-            console.error('Error stopping macOS audio:', err);
-        });
     }
 
     // Clean up hidden elements
@@ -740,7 +520,26 @@ function handleShortcut(shortcutKey) {
         if (currentView === 'main') {
             cheddar.element().handleStart();
         } else {
-            captureManualScreenshot();
+            // Try to get text from assistant view input
+            let customPrompt = null;
+            try {
+                const appElement = cheddar.element();
+                if (appElement && appElement.shadowRoot) {
+                    const assistantView = appElement.shadowRoot.querySelector('assistant-view');
+                    if (assistantView && assistantView.shadowRoot) {
+                        const input = assistantView.shadowRoot.querySelector('#textInput');
+                        if (input && input.value && input.value.trim() !== '') {
+                            customPrompt = input.value.trim();
+                            input.value = ''; // Clear input after capturing
+                            console.log('Captured custom prompt from input:', customPrompt);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error accessing input field:', e);
+            }
+
+            captureManualScreenshot(null, customPrompt);
         }
     }
 }

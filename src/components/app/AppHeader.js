@@ -34,7 +34,7 @@ export class AppHeader extends LitElement {
 
         .header-actions span {
             font-size: var(--header-font-size-small);
-            color: var(--header-actions-color);
+            color: var(--text-color);
         }
 
         .button {

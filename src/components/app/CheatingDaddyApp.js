@@ -22,7 +22,7 @@ export class CheatingDaddyApp extends LitElement {
             display: block;
             width: 100%;
             height: 100vh;
-            background-color: var(--background-transparent);
+            background-color: var(--main-content-background);
             color: var(--text-color);
         }
 
@@ -143,20 +143,111 @@ export class CheatingDaddyApp extends LitElement {
 
     applyGlobalStyles() {
         try {
+            // 1. Get Settings
             let transparency = parseFloat(localStorage.getItem('backgroundTransparency'));
-            // Validate transparency is a valid number between 0 and 1
             if (isNaN(transparency) || transparency < 0 || transparency > 1) {
-                transparency = 0.8; // Default fallback
+                transparency = 0.8;
             }
 
-            const root = document.documentElement;
-            root.style.setProperty('--main-content-background', `rgba(0, 0, 0, ${transparency})`);
-            root.style.setProperty('--screen-option-background', `rgba(0, 0, 0, ${transparency * 0.5})`);
-            root.style.setProperty('--screen-option-hover-background', `rgba(0, 0, 0, ${transparency * 0.75})`);
-            root.style.setProperty('--scrollbar-background', `rgba(0, 0, 0, ${transparency * 0.5})`);
-            root.style.setProperty('--header-background', `rgba(0, 0, 0, ${transparency})`);
+            let textOpacity = parseFloat(localStorage.getItem('textOpacity'));
+            if (isNaN(textOpacity) || textOpacity < 0.1 || textOpacity > 1) {
+                textOpacity = 1.0;
+            }
 
-            console.log('Applied global transparency:', transparency);
+            let headerHeight = parseInt(localStorage.getItem('headerHeight'), 10);
+            if (isNaN(headerHeight) || headerHeight < 0 || headerHeight > 40) {
+                headerHeight = 10; // Default
+            }
+
+            const theme = localStorage.getItem('selectedTheme') || 'black';
+
+            // 2. Define Base Colors (RGB)
+            let bgR, bgG, bgB;
+            let textR, textG, textB;
+
+            if (theme === 'white') {
+                // White Theme
+                bgR = 255;
+                bgG = 255;
+                bgB = 255;
+                textR = 0;
+                textG = 0;
+                textB = 0;
+            } else {
+                // Black Theme (Default)
+                bgR = 0;
+                bgG = 0;
+                bgB = 0;
+                textR = 229;
+                textG = 229;
+                textB = 231; // #e5e5e7
+            }
+
+            // 3. Construct RGBA Strings
+            // Main Background
+            const mainContentBg = `rgba(${bgR}, ${bgG}, ${bgB}, ${transparency})`;
+
+            // Text Color
+            const textColor = `rgba(${textR}, ${textG}, ${textB}, ${textOpacity})`;
+
+            // Wrapper/Element Backgrounds (Scale transparency relative to main)
+            const secondaryTransparency = Math.min(transparency * 0.5, 1);
+            const secondaryBg = `rgba(${bgR}, ${bgG}, ${bgB}, ${secondaryTransparency})`;
+
+            const hoverTransparency = Math.min(transparency * 0.75, 1);
+            const hoverBg = `rgba(${bgR}, ${bgG}, ${bgB}, ${hoverTransparency})`;
+
+            // Input Background - scale transparency but keep a minimum for visibility
+            // Base opacity for input is usually 0.3. Let's scale it with transparency.
+            const inputBaseOpacity = 0.3;
+            const inputOpacity = transparency * inputBaseOpacity;
+            const inputBg = `rgba(${bgR}, ${bgG}, ${bgB}, ${inputOpacity})`;
+
+            // Button Background - scale transparency
+            // Base opacity for buttons is usually 0.5.
+            const buttonBaseOpacity = 0.5;
+            const buttonOpacity = transparency * buttonBaseOpacity;
+            const buttonBg = `rgba(${bgR}, ${bgG}, ${bgB}, ${buttonOpacity})`;
+
+            // Key/Shortcut Background - scale transparency
+            // Base opacity for keys is usually 0.1 (white) or 0.2
+            // Since keys are often white on dark, we need to be careful with color.
+            // In index.html: --key-background: rgba(255, 255, 255, 0.1);
+            // It uses white explicitly in the default.
+            // Let's make it responsive to theme, or just scale the white/contrast color.
+            // Using textR/G/B for keys might be better to adapt to theme.
+            const keyBaseOpacity = 0.15;
+            const keyOpacity = transparency * keyBaseOpacity;
+            // Use text color components for keys to ensure contrast with button background?
+            // Or keep using 255 (white) as per original design? Original was fixed white.
+            // Let's stick to the theme text color for better white/black theme support.
+            const keyBg = `rgba(${textR}, ${textG}, ${textB}, ${keyOpacity})`;
+
+            // 4. Apply Variables
+            const root = document.documentElement;
+            root.style.setProperty('--main-content-background', mainContentBg);
+            root.style.setProperty('--text-color', textColor);
+            root.style.setProperty('--screen-option-background', secondaryBg);
+            root.style.setProperty('--screen-option-hover-background', hoverBg);
+            root.style.setProperty('--hover-background', hoverBg);
+            root.style.setProperty('--scrollbar-background', secondaryBg);
+            root.style.setProperty('--header-background', mainContentBg);
+            root.style.setProperty('--input-background', inputBg);
+            root.style.setProperty('--button-background', buttonBg);
+            root.style.setProperty('--key-background', keyBg);
+
+            // Apply Header Height
+            root.style.setProperty('--header-padding-y', `${headerHeight}px`);
+
+            console.log(
+                `Applied Global Styles | Theme: ${theme} | Transparency: ${transparency} | TextOpacity: ${textOpacity} | HeaderHeight: ${headerHeight}`
+            );
+            console.log(`Calculated Colors: MainBg=${mainContentBg}, Text=${textColor}`);
+
+            // Force repaint removed to prevent potential blank screen issues
+            // root.style.display = 'none';
+            // root.offsetHeight; // trigger reflow
+            // root.style.display = '';
         } catch (e) {
             console.error('Error applying global styles:', e);
         }
@@ -164,6 +255,7 @@ export class CheatingDaddyApp extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+        console.log('CheatingDaddyApp connected to DOM');
 
         // Set up IPC listeners if needed
         if (window.require) {
@@ -292,9 +384,15 @@ export class CheatingDaddyApp extends LitElement {
             return;
         }
 
+        const isOpenRouter = apiKey.startsWith('sk-or-v1') || apiKey.startsWith('pk-');
+
+        // Use manual mode for OpenRouter to save credits, otherwise use selected preference
+        const intervalToUse = isOpenRouter ? 'manual' : this.selectedScreenshotInterval;
+
         await cheddar.initializeGemini(this.selectedProfile, this.selectedLanguage);
         // Pass the screenshot interval as string (including 'manual' option)
-        cheddar.startCapture(this.selectedScreenshotInterval, this.selectedImageQuality);
+        cheddar.startCapture(intervalToUse, this.selectedImageQuality);
+
         this.responses = [];
         this.currentResponseIndex = -1;
         this.startTime = Date.now();
@@ -461,8 +559,9 @@ export class CheatingDaddyApp extends LitElement {
                         @response-index-changed=${this.handleResponseIndexChanged}
                         @response-animation-complete=${() => {
                             this.shouldAnimateResponse = false;
-                            this._currentResponseIsComplete = true;
-                            console.log('[response-animation-complete] Marked current response as complete');
+                            // Do not mark as complete here. Wait for backend 'Listening' status.
+                            // this._currentResponseIsComplete = true;
+                            console.log('[response-animation-complete] Animation finished (streaming may continue)');
                             this.requestUpdate();
                         }}
                     ></assistant-view>
