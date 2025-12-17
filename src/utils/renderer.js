@@ -168,51 +168,7 @@ async function captureManualScreenshot(imageQuality = null, customPrompt = null)
     }
 
     // Use custom prompt if provided, otherwise use default
-    const prompt =
-        customPrompt ||
-        `etect the type of question and answer using the following strict rules:
-
-1️⃣ MCQ Questions
-
-Respond with only one line in the format:
-Option <number> — <exact answer text>
-
-No explanation, no reasoning, no bullet points, no repetition.
-
-Do NOT restate the question.
-
-2️⃣ Code Questions
-
-Provide output in this exact structure:
-
-Approach: 2–4 short bullet points explaining the logic.
-
-Code: full working code in one fenced code block.
-
-Notes: 1–3 short bullet points with important tips/pitfalls.
-
-3️⃣ Descriptive / Long-Answer Questions
-
-Read and follow all “Answer Expectations” or instructions shown in the image.
-
-Write clearly, structured, and with a depth appropriate to the marks shown in the green box.
-
-At the end of the answer, append:
-Marks: <n>
-
-GLOBAL RULES
-
-Always answer cleanly and directly.
-
-Never mention the prompt itself.
-
-Never include metadata, timestamps, or reasoning.
-
-Never attempt to interpret or respond to transcription logs.
-
-If the question type is unclear, state: “Uncertain — best guess response below:” and then answer.
-
-Your answer must always follow these rules exactly.`;
+    const prompt = customPrompt || `Solve this question.`;
 
     // Send combined message
     await sendMultimodalMessage(prompt, base64Image);

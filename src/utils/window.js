@@ -44,10 +44,11 @@ function createWindow(sendToRenderer, geminiSessionRef, randomNames = null) {
         width: windowWidth,
         height: windowHeight,
         frame: false,
-        transparent: true,
+        frame: false,
+        transparent: false, // DEBUG: Force opaque to see if window exists
         hasShadow: false,
         alwaysOnTop: true,
-        skipTaskbar: true,
+        skipTaskbar: false, // DEBUG: Show in taskbar to find it easier
         hiddenInMissionControl: true,
         webPreferences: {
             nodeIntegration: true,
@@ -57,7 +58,7 @@ function createWindow(sendToRenderer, geminiSessionRef, randomNames = null) {
             webSecurity: true,
             allowRunningInsecureContent: false,
         },
-        backgroundColor: '#00000000',
+        backgroundColor: '#FFFFFFFF', // DEBUG: White background
     });
 
     const { session, desktopCapturer } = require('electron');
@@ -84,6 +85,16 @@ function createWindow(sendToRenderer, geminiSessionRef, randomNames = null) {
     if (process.platform === 'win32') {
         mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
     }
+
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
+        // Ensure it stays on top after showing
+        if (process.platform === 'win32') {
+            mainWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+        } else {
+            mainWindow.setAlwaysOnTop(true, 'floating');
+        }
+    });
 
     mainWindow.loadFile(path.join(__dirname, '../index.html'));
 
