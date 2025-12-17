@@ -139,6 +139,12 @@ function setupGeneralIpcHandlers() {
         }
     });
 
+    // Handle app restart
+    ipcMain.on('restart-app', () => {
+        app.relaunch();
+        app.exit(0);
+    });
+
     ipcMain.handle('quit-application', async event => {
         try {
             stopMacOSAudioCapture();

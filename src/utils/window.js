@@ -174,6 +174,7 @@ function getDefaultKeybinds() {
         scrollUp: isMac ? 'Cmd+Shift+Up' : 'Ctrl+Shift+Up',
         scrollDown: isMac ? 'Cmd+Shift+Down' : 'Ctrl+Shift+Down',
         emergencyErase: isMac ? 'Cmd+Shift+E' : 'Ctrl+Shift+E',
+        restartApp: isMac ? 'Cmd+Q' : 'Ctrl+Q',
     };
 }
 
@@ -360,6 +361,21 @@ function updateGlobalShortcuts(keybinds, mainWindow, sendToRenderer, geminiSessi
             console.log(`Registered emergencyErase: ${keybinds.emergencyErase}`);
         } catch (error) {
             console.error(`Failed to register emergencyErase (${keybinds.emergencyErase}):`, error);
+        }
+    }
+
+    // Register restart app shortcut
+    if (keybinds.restartApp) {
+        try {
+            globalShortcut.register(keybinds.restartApp, () => {
+                console.log('Restart Shortcut triggered');
+                const { app } = require('electron');
+                app.relaunch();
+                app.exit(0);
+            });
+            console.log(`Registered restartApp: ${keybinds.restartApp}`);
+        } catch (error) {
+            console.error(`Failed to register restartApp (${keybinds.restartApp}):`, error);
         }
     }
 }
