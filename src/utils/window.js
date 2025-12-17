@@ -44,11 +44,10 @@ function createWindow(sendToRenderer, geminiSessionRef, randomNames = null) {
         width: windowWidth,
         height: windowHeight,
         frame: false,
-        frame: false,
-        transparent: false, // DEBUG: Force opaque to see if window exists
+        transparent: true,
         hasShadow: false,
         alwaysOnTop: true,
-        skipTaskbar: false, // DEBUG: Show in taskbar to find it easier
+        skipTaskbar: true,
         hiddenInMissionControl: true,
         webPreferences: {
             nodeIntegration: true,
@@ -58,7 +57,7 @@ function createWindow(sendToRenderer, geminiSessionRef, randomNames = null) {
             webSecurity: true,
             allowRunningInsecureContent: false,
         },
-        backgroundColor: '#FFFFFFFF', // DEBUG: White background
+        backgroundColor: '#00000000',
     });
 
     const { session, desktopCapturer } = require('electron');
