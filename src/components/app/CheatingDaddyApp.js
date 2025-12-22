@@ -235,6 +235,8 @@ export class CheatingDaddyApp extends LitElement {
             root.style.setProperty('--input-background', inputBg);
             root.style.setProperty('--button-background', buttonBg);
             root.style.setProperty('--key-background', keyBg);
+            root.style.setProperty('--text-rgb', `${textR}, ${textG}, ${textB}`);
+            root.style.setProperty('--text-opacity', textOpacity);
 
             // Apply Header Height
             root.style.setProperty('--header-padding-y', `${headerHeight}px`);

@@ -176,12 +176,12 @@ export class AssistantView extends LitElement {
         }
 
         .response-container::-webkit-scrollbar-track {
-            background: var(--scrollbar-track);
+            background: var(--text-opacity);
             border-radius: 4px;
         }
 
         .response-container::-webkit-scrollbar-thumb {
-            background: var(--scrollbar-thumb);
+            background: rgba(var(--text-rgb), var(--text-opacity));
             border-radius: 4px;
         }
 

@@ -154,9 +154,10 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             sendToRenderer('update-response', '');
             sendToRenderer('update-status', 'Analyzing Image...');
 
-            const responseText = await geminiSessionRef.current.sendMessage({
-                image: data,
-            });
+             const responseText = await geminiSessionRef.current.sendMessage({
+                 text: 'Analyze the image and answer the question present in it. If no question is visible, state that deeply.',
+                 image: data,
+             });
 
             if (responseText) {
                 saveConversationTurn('[Image Upload]', responseText);
